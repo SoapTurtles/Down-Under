@@ -1,109 +1,120 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
+    [Header("Horizontal Movement")]
+    public float moveSpeed = 10f;
+    public Vector2 direction;
+    private bool facingRight = true;
 
-    public float speed = 5f;
-    public float jumpSpeed = 5f;
-    public float JumpingSpeedFraction = 0.25f;
-    public bool jumping;
+    [Header("Vertical Movement")]
+    public float jumpSpeed = 15f;
+    public float jumpDelay = 0.25f;
+    private float jumpTimer;
 
-    public bool dying;
-    public bool dead;
-    public GameObject Body;
+    [Header("Components")]
+    public Rigidbody2D rb;
+    public Animator animator;
+    public LayerMask groundLayer;
+    public GameObject characterHolder;
 
-    private float dashTime;
-    public float startDashTime;
-    public int direction;
-    public float dashSpeed;
+    [Header("Physics")]
+    public float maxSpeed = 7f;
+    public float linearDrag = 4f;
+    public float gravity = 1f;
+    public float fallMultiplier = 5f;
 
-    private Rigidbody2D rb;
-    private Animator anim;
-
-    public GroundCheck GC;
-    public float deathForce = 20;
-
-    // Start is called before the first frame update
-    void Start()
-    {
-        rb = GetComponent<Rigidbody2D>();
-        anim = GetComponent<Animator>();
-        dashTime = startDashTime;
-    }
+    [Header("Collision")]
+    public bool onGround = false;
+    public float groundLength = 0.6f;
+    public Vector3 colliderOffset;
 
     // Update is called once per frame
     void Update()
     {
-        if(direction == 0)
+        bool wasOnGround = onGround;
+        onGround = Physics2D.Raycast(transform.position + colliderOffset, Vector2.down, groundLength, groundLayer) || Physics2D.Raycast(transform.position - colliderOffset, Vector2.down, groundLength, groundLayer);
+
+
+        if (Input.GetButtonDown("Jump"))
         {
-            if (Input.GetKeyDown(KeyCode.A))
-            {
-                direction = 1;
-            }
-            else if(Input.GetKeyDown(KeyCode.D))
-            {
-                direction = 2;
-            }
+            jumpTimer = Time.time + jumpDelay;
         }
-        else
+        animator.SetBool("onGround", onGround);
+        direction = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+    }
+    void FixedUpdate()
+    {
+        moveCharacter(direction.x);
+        if (jumpTimer > Time.time && onGround)
         {
-            if(dashTime <= 0)
+            Jump();
+        }
+
+        modifyPhysics();
+    }
+    void moveCharacter(float horizontal)
+    {
+        rb.AddForce(Vector2.right * horizontal * moveSpeed);
+
+        if ((horizontal > 0 && !facingRight) || (horizontal < 0 && facingRight))
+        {
+            Flip();
+        }
+        if (Mathf.Abs(rb.velocity.x) > maxSpeed)
+        {
+            rb.velocity = new Vector2(Mathf.Sign(rb.velocity.x) * maxSpeed, rb.velocity.y);
+        }
+        animator.SetFloat("horizontal", Mathf.Abs(rb.velocity.x));
+        animator.SetFloat("vertical", rb.velocity.y);
+    }
+    void Jump()
+    {
+        rb.velocity = new Vector2(rb.velocity.x, 0);
+        rb.AddForce(Vector2.up * jumpSpeed, ForceMode2D.Impulse);
+        jumpTimer = 0;
+    }
+    void modifyPhysics()
+    {
+        bool changingDirections = (direction.x > 0 && rb.velocity.x < 0) || (direction.x < 0 && rb.velocity.x > 0);
+
+        if (onGround)
+        {
+            if (Mathf.Abs(direction.x) < 0.4f || changingDirections)
             {
-                direction = 0;
-                dashTime = startDashTime;
-                rb.velocity = Vector2.zero;
+                rb.drag = linearDrag;
             }
             else
             {
-                dashTime -= Time.deltaTime;
+                rb.drag = 0f;
             }
-
-            if(direction == 1 && Input.GetKeyDown(KeyCode.Space))
+            rb.gravityScale = 0;
+        }
+        else
+        {
+            rb.gravityScale = gravity;
+            if (rb.velocity.y < 0)
             {
-                rb.velocity = Vector2.left * dashSpeed;
+                rb.gravityScale = gravity * fallMultiplier;
             }
-            if (direction == 2 && Input.GetKeyDown(KeyCode.Space))
+            else if (rb.velocity.y > 0 && !Input.GetButton("Jump"))
             {
-                rb.velocity = Vector2.right * dashSpeed;
+                rb.gravityScale = gravity * (fallMultiplier / 2);
             }
         }
     }
-
-    private void FixedUpdate()
+    void Flip()
     {
-        if (!dying && !dead)
-        {
-            float h = Input.GetAxisRaw("Horizontal");
-
-            if (jumping)
-            {
-                h = h * JumpingSpeedFraction;
-            }
-
-            float F = ((speed * h - rb.velocity.x) / Time.deltaTime) * rb.mass;
-            rb.AddForce(new Vector2(F, 0));
-
-            if (h > 0)
-            {
-                transform.localScale = new Vector3(1, 1, 1);
-            }
-            else if (h < 0)
-            {
-                transform.localScale = new Vector3(-1, 1, 1);
-            }
-        }
+        facingRight = !facingRight;
+        transform.rotation = Quaternion.Euler(0, facingRight ? 0 : 180, 0);
     }
 
-    public void Jump()
+    private void OnDrawGizmos()
     {
-        if (GC.isGrounded)
-        {
-            float F = ((jumpSpeed - rb.velocity.y) / Time.deltaTime) * rb.mass;
-            rb.AddForce(new Vector2(0, F));
-        }
-        jumping = false;
+        Gizmos.color = Color.red;
+        Gizmos.DrawLine(transform.position + colliderOffset, transform.position + colliderOffset + Vector3.down * groundLength);
+        Gizmos.DrawLine(transform.position - colliderOffset, transform.position - colliderOffset + Vector3.down * groundLength);
     }
 }
