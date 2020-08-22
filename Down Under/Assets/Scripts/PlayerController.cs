@@ -1,120 +1,138 @@
-﻿using System.Collections;
+﻿using JetBrains.Annotations;
+using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.ComponentModel.Design;
 using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
-    [Header("Horizontal Movement")]
+
+    private float movementInputDirection;
     public float moveSpeed = 10f;
-    public Vector2 direction;
-    private bool facingRight = true;
+    public float jumpForce = 7f;
+    private float heldJump = 0.0f;
+    [Range(0f, 1f)]
+    public float jumpCut;
 
-    [Header("Vertical Movement")]
-    public float jumpSpeed = 15f;
-    public float jumpDelay = 0.25f;
-    private float jumpTimer;
+    public float groundCheckRadius;
 
-    [Header("Components")]
-    public Rigidbody2D rb;
-    public Animator animator;
-    public LayerMask groundLayer;
-    public GameObject characterHolder;
+    public int maxHealth = 100;
+    public int currentHealth;
+    public HealthBarScript healthBar;
 
-    [Header("Physics")]
-    public float maxSpeed = 7f;
-    public float linearDrag = 4f;
-    public float gravity = 1f;
-    public float fallMultiplier = 5f;
+    private bool isRight = true;
+    private bool isWalking;
+    public bool isGrounded;
+    private bool canJump;
 
-    [Header("Collision")]
-    public bool onGround = false;
-    public float groundLength = 0.6f;
-    public Vector3 colliderOffset;
+    private Rigidbody2D rb;
+    private Animator anim;
+
+    public Transform groundCheck;
+    public LayerMask whatIsGround;
+    // Start is called before the first frame update
+    void Start()
+    {
+        rb = GetComponent<Rigidbody2D>();
+        anim = GetComponent<Animator>();
+
+        currentHealth = maxHealth;
+        healthBar.SetMaxHealth(maxHealth);
+    }
 
     // Update is called once per frame
     void Update()
     {
-        bool wasOnGround = onGround;
-        onGround = Physics2D.Raycast(transform.position + colliderOffset, Vector2.down, groundLength, groundLayer) || Physics2D.Raycast(transform.position - colliderOffset, Vector2.down, groundLength, groundLayer);
+        CheckInput();
+        CheckDirection();
+        UpdateAnimations();
 
-
-        if (Input.GetButtonDown("Jump"))
+        if (Input.GetButton("Jump"))
         {
-            jumpTimer = Time.time + jumpDelay;
-        }
-        animator.SetBool("onGround", onGround);
-        direction = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-    }
-    void FixedUpdate()
-    {
-        moveCharacter(direction.x);
-        if (jumpTimer > Time.time && onGround)
-        {
-            Jump();
+            heldJump += Time.deltaTime;
         }
 
-        modifyPhysics();
-    }
-    void moveCharacter(float horizontal)
-    {
-        rb.AddForce(Vector2.right * horizontal * moveSpeed);
+        if (Input.GetKeyDown(KeyCode.Q))
+        {
+            TakeDamage(20);
+        }
 
-        if ((horizontal > 0 && !facingRight) || (horizontal < 0 && facingRight))
+    }
+    void TakeDamage(int damage)
+    {
+        currentHealth -= damage;
+
+        healthBar.SetHealth(currentHealth);
+    }
+
+    private void FixedUpdate()
+    {
+        ApplyMovement();
+        CheckSurrondings();
+    }
+
+    private void CheckSurrondings()
+    {
+        isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, whatIsGround);
+    }
+
+    private void CheckDirection()
+    {
+        if (isRight && movementInputDirection < 0)
         {
             Flip();
         }
-        if (Mathf.Abs(rb.velocity.x) > maxSpeed)
+        else if (!isRight && movementInputDirection > 0)
         {
-            rb.velocity = new Vector2(Mathf.Sign(rb.velocity.x) * maxSpeed, rb.velocity.y);
+            Flip();
         }
-        animator.SetFloat("horizontal", Mathf.Abs(rb.velocity.x));
-        animator.SetFloat("vertical", rb.velocity.y);
-    }
-    void Jump()
-    {
-        rb.velocity = new Vector2(rb.velocity.x, 0);
-        rb.AddForce(Vector2.up * jumpSpeed, ForceMode2D.Impulse);
-        jumpTimer = 0;
-    }
-    void modifyPhysics()
-    {
-        bool changingDirections = (direction.x > 0 && rb.velocity.x < 0) || (direction.x < 0 && rb.velocity.x > 0);
 
-        if (onGround)
+        if(movementInputDirection != 0)
         {
-            if (Mathf.Abs(direction.x) < 0.4f || changingDirections)
-            {
-                rb.drag = linearDrag;
-            }
-            else
-            {
-                rb.drag = 0f;
-            }
-            rb.gravityScale = 0;
+            isWalking = true;
         }
-        else
+        else if(movementInputDirection == 0)
         {
-            rb.gravityScale = gravity;
-            if (rb.velocity.y < 0)
-            {
-                rb.gravityScale = gravity * fallMultiplier;
-            }
-            else if (rb.velocity.y > 0 && !Input.GetButton("Jump"))
-            {
-                rb.gravityScale = gravity * (fallMultiplier / 2);
-            }
+            isWalking = false;
+        }
+
+    }
+    private void Flip()
+    {
+        isRight = !isRight;
+        transform.Rotate(0f, 180f, 0f);
+    }
+
+    private void UpdateAnimations()
+    {
+        anim.SetBool("isWalking",isWalking);
+    }
+
+    private void CheckInput()
+    {
+        movementInputDirection = Input.GetAxisRaw("Horizontal");
+
+        if (Input.GetButtonDown("Jump") && isGrounded == true)
+        {
+            Jump();
         }
     }
-    void Flip()
+
+    private void Jump()
+    {  
+        rb.velocity = new Vector2(rb.velocity.x, jumpForce);
+
+    }
+
+    private void ApplyMovement()
     {
-        facingRight = !facingRight;
-        transform.rotation = Quaternion.Euler(0, facingRight ? 0 : 180, 0);
+        rb.velocity = new Vector2(moveSpeed * movementInputDirection,rb.velocity.y);
     }
 
     private void OnDrawGizmos()
     {
-        Gizmos.color = Color.red;
-        Gizmos.DrawLine(transform.position + colliderOffset, transform.position + colliderOffset + Vector3.down * groundLength);
-        Gizmos.DrawLine(transform.position - colliderOffset, transform.position - colliderOffset + Vector3.down * groundLength);
+        Gizmos.DrawWireSphere(groundCheck.position, groundCheckRadius);
     }
+
 }

@@ -4,34 +4,40 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public class CaveScript : MonoBehaviour{
+public class CaveScript : MonoBehaviour
+{
+    [SerializeField]
+    Canvas messageCanvas;
 
-    public bool isIn;
-    public GameObject dialogueBox;
-
-    // Start is called before the first frame update
     void Start()
     {
-        isIn = false;
-        dialogueBox.SetActive(false);
+        messageCanvas.enabled = false;
     }
 
-    // Update is called once per frame
-    void Update()
+    void OnTriggerEnter2D(Collider2D other)
     {
-        if(isIn == true)
+        if (other.name == "Player")
         {
-            dialogueBox.SetActive(true);
+            TurnOnMessage();
         }
-
-
     }
-    public void OnTriggerEnter2D(Collider2D other)
+
+    private void TurnOnMessage()
     {
-        if(other.tag == "Player")
+        messageCanvas.enabled = true;
+    }
+
+    void OnTriggerExit2D(Collider2D other)
+    {
+        if (other.name == "Player")
         {
-            isIn = true;
+            TurnOffMessage();
         }
+    }
+
+    private void TurnOffMessage()
+    {
+        messageCanvas.enabled = false;
     }
 
     public void EnterCave()
@@ -39,3 +45,4 @@ public class CaveScript : MonoBehaviour{
         SceneManager.LoadScene("Cave");
     }
 }
+
