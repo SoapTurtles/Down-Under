@@ -31,6 +31,7 @@ public class PlayerController : MonoBehaviour
 
     public Transform groundCheck;
     public LayerMask whatIsGround;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -59,7 +60,7 @@ public class PlayerController : MonoBehaviour
         }
 
     }
-    void TakeDamage(int damage)
+    public void TakeDamage(int damage)
     {
         currentHealth -= damage;
 
