@@ -1,9 +1,8 @@
-﻿using JetBrains.Annotations;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.ComponentModel.Design;
+using UnityEditor.Experimental.UIElements.GraphView;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class PlayerController : MonoBehaviour
 {
@@ -12,10 +11,10 @@ public class PlayerController : MonoBehaviour
     public float moveSpeed = 10f;
     public float jumpForce = 7f;
     private float heldJump = 0.0f;
-    [Range(0f, 1f)]
-    public float jumpCut;
 
     public float groundCheckRadius;
+
+    [Header("Health Settings")]
 
     public int maxHealth = 100;
     public int currentHealth;
@@ -32,7 +31,16 @@ public class PlayerController : MonoBehaviour
     public Transform groundCheck;
     public LayerMask whatIsGround;
 
-    // Start is called before the first frame update
+    [Header("Dash Settings")]
+    private bool isDashing;
+    public float dashTime;
+    public float dashSpeed;
+    public float distanceBetweenImages;
+    public float dashCooldown;
+    private float dashTimeLeft;
+    private float lastImageXpos;
+    private float lastDash = -100;
+
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -48,6 +56,7 @@ public class PlayerController : MonoBehaviour
         CheckInput();
         CheckDirection();
         UpdateAnimations();
+        CheckDash();
 
         if (Input.GetButton("Jump"))
         {
@@ -59,7 +68,54 @@ public class PlayerController : MonoBehaviour
             TakeDamage(20);
         }
 
+        if(currentHealth == 0)
+        {
+            SceneManager.LoadScene("Death Screen");
+        }
+
+        if (Input.GetKeyDown(KeyCode.LeftShift))
+        {
+            if(Time.time >= (lastDash + dashCooldown))
+            {
+                AttemptToDash();
+            }
+        }
+
     }
+
+    public void AttemptToDash()
+    {
+        isDashing = true;
+        dashTimeLeft = dashTime;
+        lastDash = Time.time;
+
+        AfterImagePool.Instance.GetFromPool();
+        lastImageXpos = transform.position.x;
+    }
+
+    private void CheckDash()
+    {
+        if (isDashing)
+        {
+            if(dashTimeLeft > 0)
+            {
+                rb.velocity = new Vector2(dashSpeed * movementInputDirection, rb.velocity.y);
+                dashTimeLeft -= Time.deltaTime;
+
+                if (Mathf.Abs(transform.position.x - lastImageXpos) > distanceBetweenImages)
+                {
+                    AfterImagePool.Instance.GetFromPool();
+                    lastImageXpos = transform.position.x;
+                }
+            }
+            if(dashTimeLeft <= 0)
+            {
+                isDashing = true;
+            }
+
+        }
+    }
+
     public void TakeDamage(int damage)
     {
         currentHealth -= damage;
