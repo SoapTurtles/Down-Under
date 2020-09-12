@@ -80,7 +80,6 @@ public class PlayerController : MonoBehaviour
                 AttemptToDash();
             }
         }
-
     }
 
     public void AttemptToDash()

@@ -26,7 +26,6 @@ public class ProjectileScript : MonoBehaviour
         if (other.name == "Player")
         {
             target.TakeDamage(20);
-            Debug.Log("Hit!");
             Destroy(gameObject);
         }
     }

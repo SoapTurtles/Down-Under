@@ -18,7 +18,7 @@ public class Spider : Enemy
     public GameObject acid;
 
     private float fireRate;
-    private float nextFire = Time.deltaTime;
+    private float nextFire;
     public bool enteredRadius;
 
     public override void Die()
@@ -95,6 +95,10 @@ public class Spider : Enemy
     void Update()
     {
         FireTime();
+        if(Health == 0)
+        {
+            Destroy(gameObject);
+        }
     }
 
     public void FireTime()
